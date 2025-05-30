@@ -1,101 +1,85 @@
-import os
-import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
-from collections import deque
-import random
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
 
-STATE_PATH = "io/state.csv"
-DECISION_PATH = "io/decision.txt"
-REWARD_PATH = "io/reward.txt"
-MODEL_PATH = "model.pt"
+# 1. Wczytaj dane
+df = pd.read_csv("./robots/mybots/DataCollectingBot.data/battle_data.csv")
 
-STATE_SIZE = 9
-ACTION_SPACE = [0.1, 1.0, 2.0, 3.0]
-GAMMA = 0.99
-LR = 1e-3
-BATCH_SIZE = 64
-MEMORY_SIZE = 10000
+# 2. Przygotuj dane wejściowe i etykiety
+X = df.drop("hit", axis=1).values  # cechy
+y = df["hit"].values               # klasy: 0 lub 1
 
-class QNetwork(nn.Module):
+# 3. Podziel dane na treningowe i testowe
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 4. Normalizacja danych
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# 5. Konwersja na tensory PyTorch
+X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
+y_train_tensor = torch.tensor(y_train, dtype=torch.float32).view(-1, 1)
+X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
+y_test_tensor = torch.tensor(y_test, dtype=torch.float32).view(-1, 1)
+
+# 6. Definicja prostej sieci neuronowej
+class ShootingNet(nn.Module):
     def __init__(self):
-        super().__init__()
-        self.fc1 = nn.Linear(STATE_SIZE, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.out = nn.Linear(64, len(ACTION_SPACE))
+        super(ShootingNet, self).__init__()
+        self.model = nn.Sequential(
+            nn.Linear(X.shape[1], 32),
+            nn.ReLU(),
+            nn.Linear(32, 16),
+            nn.ReLU(),
+            nn.Linear(16, 1),
+            nn.Sigmoid()  # wynik: prawdopodobieństwo trafienia
+        )
 
     def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        return self.out(x)
+        return self.model(x)
 
-class DQNAgent:
-    def __init__(self):
-        self.model = QNetwork()
-        self.optimizer = optim.Adam(self.model.parameters(), lr=LR)
-        self.memory = deque(maxlen=MEMORY_SIZE)
-        self.epsilon = 1.0
+# 7. Inicjalizacja modelu, funkcji kosztu i optymalizatora
+model = ShootingNet()
+criterion = nn.BCELoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    def act(self, state):
-        if random.random() < self.epsilon:
-            return random.randint(0, len(ACTION_SPACE) - 1)
-        with torch.no_grad():
-            q_values = self.model(state)
-            return torch.argmax(q_values).item()
+# 8. Trening
+epochs = 30
+losses = []
 
-    def store(self, s, a, r, s_):
-        self.memory.append((s, a, r, s_))
+for epoch in range(epochs):
+    model.train()
+    optimizer.zero_grad()
+    outputs = model(X_train_tensor)
+    loss = criterion(outputs, y_train_tensor)
+    loss.backward()
+    optimizer.step()
 
-    def train(self):
-        if len(self.memory) < BATCH_SIZE:
-            return
-        batch = random.sample(self.memory, BATCH_SIZE)
-        states, actions, rewards, next_states = zip(*batch)
-        states = torch.stack(states)
-        next_states = torch.stack(next_states)
-        actions = torch.tensor(actions)
-        rewards = torch.tensor(rewards, dtype=torch.float32)
+    losses.append(loss.item())
+    print(f"Epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
 
-        q_values = self.model(states)
-        next_q = self.model(next_states).max(1)[0].detach()
-        q_target = rewards + GAMMA * next_q
-        q_pred = q_values.gather(1, actions.unsqueeze(1)).squeeze()
-        loss = F.mse_loss(q_pred, q_target)
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-        self.epsilon = max(0.1, self.epsilon * 0.995)
+# 9. Ewaluacja
+model.eval()
+with torch.no_grad():
+    preds = model(X_test_tensor)
+    predicted_classes = (preds > 0.5).float()
+    accuracy = (predicted_classes.eq(y_test_tensor).sum().item()) / y_test_tensor.size(0)
+    print(f"\nAccuracy on test set: {accuracy*100:.2f}%")
 
-def run():
-    agent = DQNAgent()
-    last_state, last_action = None, None
-    while True:
-        if os.path.exists(STATE_PATH):
-            with open(STATE_PATH, 'r') as f:
-                line = f.readline().strip()
-                if not line or line.count(',') < 8:
-                    continue
-                state_values = list(map(float, line.split(',')))
-                state = torch.tensor(state_values, dtype=torch.float32)
+# 10. Wykres lossów
+plt.plot(losses)
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.title("Training Loss")
+plt.grid(True)
+plt.show()
 
-
-            if last_state is not None and os.path.exists(REWARD_PATH):
-                with open(REWARD_PATH, 'r') as f:
-                    reward = float(f.readline().strip())
-                agent.store(last_state, last_action, reward, state)
-                agent.train()
-                os.remove(REWARD_PATH)
-
-            action_index = agent.act(state)
-            with open(DECISION_PATH, 'w') as f:
-                f.write(str(ACTION_SPACE[action_index]))
-
-            last_state, last_action = state, action_index
-            os.remove(STATE_PATH)
-        else:
-            time.sleep(0.01)
-
-if __name__ == "__main__":
-    run()
+# 11. Zapis modelu i skalera
+torch.save(model.state_dict(), "shooting_model.pt")
+import joblib
+joblib.dump(scaler, "scaler.pkl")
