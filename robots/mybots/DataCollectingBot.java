@@ -11,9 +11,17 @@ public class DataCollectingBot extends AdvancedRobot {
     private Map<Bullet, BulletData> bulletMap = new HashMap<>();
 
     public void run() {
+        File dataFilePath = new File(getDataDirectory(), "battle_data.csv");
+        boolean fileExists = dataFilePath.exists();
+
+        System.out.println(fileExists);
+
         try {
             writer = new PrintWriter(new BufferedWriter(new FileWriter(getDataFile("battle_data.csv"), true)));
-            writer.println("bot_x,bot_y,gun_heading,enemy_x,enemy_y,distance,enemy_heading,enemy_velocity,enemy_angle,fire_power,bullet_speed,hit");
+
+            if (!fileExists){
+                writer.println("bot_x,bot_y,gun_heading,enemy_x,enemy_y,distance,enemy_heading,enemy_velocity,enemy_angle,fire_power,bullet_speed,hit");
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -42,7 +50,7 @@ public class DataCollectingBot extends AdvancedRobot {
             double enemyVelocity = e.getVelocity();
             double angleToEnemy = Utils.normalRelativeAngle(absoluteBearing - myGunHeading);
 
-            double firePower = 2.0;
+            double firePower = 0.1 + Math.random() * (3.0 - 0.1);
             double bulletSpeed = 20 - 3 * firePower;
 
             setTurnGunRightRadians(angleToEnemy);

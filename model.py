@@ -1,15 +1,16 @@
 import torch.nn as nn
 
 class ShootingNet(nn.Module):
-    def __init__(self):
+    def __init__(self, dropout_p: float = 0.5):
         super(ShootingNet, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear(11, 32),
+            nn.Linear(9, 64),
             nn.ReLU(),
-            nn.Linear(32, 16),
+            nn.Dropout(dropout_p),
+            nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Linear(16, 1),
-            nn.Sigmoid()
+            nn.Dropout(dropout_p),
+            nn.Linear(32, 1)
         )
 
     def forward(self, x):

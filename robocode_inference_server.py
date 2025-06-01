@@ -29,7 +29,7 @@ def handle_connection(conn, addr):
                 input_tensor = torch.tensor(situation_scaled, dtype=torch.float32)
 
                 with torch.no_grad():
-                    output = model(input_tensor)
+                    output = torch.sigmoid(model(input_tensor))
                     prediction = int(output.item() > 0.5)
 
                 conn.sendall((str(prediction) + "\n").encode())

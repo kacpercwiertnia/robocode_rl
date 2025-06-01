@@ -34,16 +34,16 @@ public class SmartShooterBot extends AdvancedRobot {
         double distance = e.getDistance();
         double bearing = e.getBearingRadians();
         double absBearing = getHeadingRadians() + bearing;
-        double enemyX = myX + distance * Math.sin(absBearing);
-        double enemyY = myY + distance * Math.cos(absBearing);
+        // double enemyX = myX + distance * Math.sin(absBearing);
+        // double enemyY = myY + distance * Math.cos(absBearing);
         double enemyHeading = e.getHeadingRadians();
         double enemyVelocity = e.getVelocity();
         double enemyAngle = Utils.normalRelativeAngle(absBearing - gunHeading);
         double firePower = 2.0;
         double bulletSpeed = 20 - 3 * firePower;
 
-        String input = String.format(Locale.US, "%.2f,%.2f,%.4f,%.2f,%.2f,%.2f,%.4f,%.2f,%.4f,%.2f,%.2f",
-                myX, myY, gunHeading, enemyX, enemyY, distance, enemyHeading,
+        String input = String.format(Locale.US, "%.2f,%.2f,%.4f,%.2f,%.4f,%.2f,%.4f,%.2f,%.2f",
+                myX, myY, gunHeading, distance, enemyHeading,
                 enemyVelocity, enemyAngle, firePower, bulletSpeed);
 
         try {
