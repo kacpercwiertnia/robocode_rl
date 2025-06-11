@@ -12,10 +12,11 @@ import numpy as np
 from sklearn.feature_selection import SelectKBest, f_classif
 import seaborn as sns
 from sklearn.decomposition import PCA
+import joblib
 
-df = pd.read_csv("./robots/mybots/DataCollectingBot.data/battle_data.csv")
+df = pd.read_csv("./robots/mybots/SmartShooterBot.data/smart_battle_data.csv")
 
-X = df.drop("hit", axis=1).drop("enemy_y", axis=1).drop("enemy_x", axis=1).values  # cechy
+X = df.drop("hit", axis=1).values  # cechy
 y = df["hit"].values               # klasy: 0 lub 1
 
 def check_attributes_importance(x, y):
@@ -36,18 +37,14 @@ def check_attributes_importance(x, y):
     plt.grid(True)
     plt.show()
 
-
-# 2. Przygotuj dane wejściowe i etykiety
-
-
 # 3. Podziel dane na treningowe i testowe
 X_train_to_split, X_test, y_train_to_split, y_test = train_test_split(X, y, test_size=0.2, random_state=39, shuffle=True, stratify=y)
 
 X_train, X_valid, y_train, y_valid = train_test_split(X_train_to_split, y_train_to_split, test_size=0.2, random_state=39, shuffle=True, stratify=y_train_to_split)
 
 # 4. Normalizacja danych
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
+scaler = joblib.load("scaler.pkl")
+X_train = scaler.transform(X_train)
 X_test = scaler.transform(X_test)
 X_valid = scaler.transform(X_valid)
 
@@ -80,6 +77,7 @@ l2_reg = 1e-4
 
 # 7. Inicjalizacja modelu, funkcji kosztu i optymalizatora
 model = ShootingNet()
+model.load_state_dict(torch.load("shooting_model.pt"))
 criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=l2_reg)
 
