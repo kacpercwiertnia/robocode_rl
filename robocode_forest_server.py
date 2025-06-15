@@ -6,7 +6,7 @@ forest = joblib.load("forest_model.pkl")
 scaler = joblib.load("forest_scaler.pkl")
 
 HOST = "localhost"
-PORT = 5001
+PORT = 5002
 
 def handle_connection(conn, addr):
     print(f"[PYTHON] Nowe połączenie z {addr}")
